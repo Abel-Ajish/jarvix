@@ -1,0 +1,27 @@
+{
+  "name": "calculator",
+  "version": "1.0.0",
+  "description": "Basic calculator tool for evaluating mathematical expressions safely",
+  "author": "Jarvix Team",
+  "homepage": "https://github.com/jarvix/jarvix",
+  "tools": ["calculate"],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "precision": {
+        "type": "integer",
+        "default": 10,
+        "minimum": 1,
+        "maximum": 50,
+        "description": "Decimal precision for results"
+      },
+      "allow_functions": {
+        "type": "boolean",
+        "default": false,
+        "description": "Allow math functions like sqrt, sin, cos"
+      }
+    }
+  },
+  "permissions": [],
+  "min_jarvix_version": "0.1.0"
+}

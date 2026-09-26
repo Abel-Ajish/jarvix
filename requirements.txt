@@ -1,0 +1,36 @@
+# jarvix requirements
+# Core dependencies (already installed in environment)
+PySide6>=6.11.0
+PyYAML>=6.0
+cryptography>=49.0
+aiosqlite>=0.22.0
+psutil>=7.0
+pynput>=1.8.0
+pyautogui>=0.9.54
+pygetwindow>=0.0.9
+Pillow>=12.0
+mss>=10.0
+
+# Voice
+faster-whisper>=1.2.0
+sounddevice>=0.5.0
+
+# AI providers
+openai>=3.19.0
+anthropic>=1.8.0
+httpx>=0.28.0
+tiktoken>=0.13.0
+
+# Web automation
+playwright>=1.62.0
+
+# Utilities
+websockets>=16.0
+aiohttp>=3.14.0
+requests>=2.34.0
+numpy>=1.26.0
+certifi>=2026.0.0
+
+# Optional TTS (install if available)
+# pyttsx3>=2.90
+# edge-tts>=6.0.0
