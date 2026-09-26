@@ -302,9 +302,12 @@ class TestToolRegistry:
         # Set permission override in settings
         temp_settings.set("permissions.test_tool", "CONFIRM")
 
-        # Create new permission manager with updated settings
+        # Create new permission manager that uses temp_settings
         from jarvix.core.permissions import PermissionManager
-        pm = PermissionManager()
+        pm = PermissionManager.__new__(PermissionManager)
+        pm._settings = temp_settings
+        pm._overrides = {}
+        pm._load_overrides()
         registry = ToolRegistry(tool_registry._event_bus, pm)
         registry.register("test_tool", TestTool())
 
