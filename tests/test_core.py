@@ -343,9 +343,12 @@ class TestPermissionManager:
         """Test settings override tool's default permission."""
         temp_settings.set("permissions.custom_tool", "BLOCKED")
 
-        # Create new permission manager to pick up settings
+        # Create new permission manager that uses temp_settings
         from jarvix.core.permissions import PermissionManager
-        pm = PermissionManager()
+        pm = PermissionManager.__new__(PermissionManager)
+        pm._settings = temp_settings
+        pm._overrides = {}
+        pm._load_overrides()
 
         decision = pm.check("custom_tool", {}, PermissionLevel.SAFE)
         assert not decision.allowed
