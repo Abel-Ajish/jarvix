@@ -179,37 +179,37 @@ async def search_all(query: str, limit: int = 50) -> List[SearchResult]:
 
 
 # ---------------------------------------------------------------------------
-# Synchronous convenience functions used by tests
+# Async convenience functions used by tests
 # ---------------------------------------------------------------------------
 
-def search_conversations(
+async def search_conversations(
     conversation_store: Any,
     query: str,
     limit: int = 50,
 ) -> List[SearchResult]:
-    """Synchronous search helper for ConversationStore fixtures.
+    """Async search helper for ConversationStore fixtures.
 
     This is a thin wrapper around the store's own search method,
     returning SearchResult objects for compatibility with the test suite.
     """
-    results = conversation_store.search(query, limit=limit)
+    results = await conversation_store.search(query, limit=limit)
     output: List[SearchResult] = []
     for msg in results:
         output.append(SearchResult(item=msg, score=1.0, type="message"))
     return output
 
 
-def search_facts(
+async def search_facts(
     memory_store: Any,
     query: str,
     limit: int = 50,
 ) -> List[SearchResult]:
-    """Synchronous search helper for MemoryStore fixtures.
+    """Async search helper for MemoryStore fixtures.
 
     This is a thin wrapper around the store's own search method,
     returning SearchResult objects for compatibility with the test suite.
     """
-    facts = memory_store.get_facts(query=query, limit=limit)
+    facts = await memory_store.get_facts(query=query, limit=limit)
     output: List[SearchResult] = []
     for fact in facts:
         output.append(SearchResult(item=fact, score=1.0, type="fact"))

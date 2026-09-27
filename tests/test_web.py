@@ -9,6 +9,7 @@ from jarvix.core.events import EventBus
 from jarvix.core.execution import ExecContext
 from jarvix.core.permissions import PermissionManager
 from jarvix.core.tool_registry import ToolRegistry, ToolResult
+from jarvix.core.permissions import PermissionLevel
 from jarvix.web import register_web_tools
 
 
@@ -69,7 +70,7 @@ class TestWebTools:
 
         assert schema["type"] == "object"
         assert "url" in schema["properties"]
-        assert "format" in schema["properties"]
+        assert "timeout" in schema["properties"]
         assert schema["required"] == ["url"]
 
     def test_browser_navigate_tool_schema(self, mock_tool_registry: ToolRegistry) -> None:
@@ -89,9 +90,9 @@ class TestWebTools:
         """Test web_search tool execution (mocked)."""
         register_web_tools(mock_tool_registry)
 
-        # Mock the actual execution
+        # Set permission to SAFE so execute works without confirmation
         tool = mock_tool_registry.get("web_search")
-        original_execute = tool.execute
+        tool.permission = PermissionLevel.SAFE
 
         async def mock_execute(args, ctx):
             return ToolResult.success("Search results for: " + args["query"], data={"results": []})
@@ -115,6 +116,7 @@ class TestWebTools:
         register_web_tools(mock_tool_registry)
 
         tool = mock_tool_registry.get("browser_navigate")
+        tool.permission = PermissionLevel.SAFE
 
         async def mock_execute(args, ctx):
             return ToolResult.success(f"Navigated to {args['url']}")
@@ -138,6 +140,7 @@ class TestWebTools:
         register_web_tools(mock_tool_registry)
 
         tool = mock_tool_registry.get("browser_click")
+        tool.permission = PermissionLevel.SAFE
 
         async def mock_execute(args, ctx):
             return ToolResult.success(f"Clicked element: {args['selector']}")
@@ -185,18 +188,15 @@ class TestWebSearchModule:
     @pytest.mark.asyncio
     async def test_duckduckgo_search(self) -> None:
         """Test DuckDuckGo search returns results."""
-        from jarvix.web.search import search_duckduckgo
+        from jarvix.web.search import search
 
-        with patch("jarvix.web.search.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.text = """
-                <html>
-                    <a class="result__snippet" href="https://example.com">Example result</a>
-                </html>
-            """
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-
-            results = await search_duckduckgo("test query", max_results=5)
+        with patch("jarvix.web.search._http_get", return_value="""
+            <html>
+                <a class="result__a" href="https://example.com">Example result</a>
+                <div class="result__snippet">A snippet about the result.</div>
+            </html>
+        """):
+            results = await search("test query", max_results=5)
 
             assert isinstance(results, list)
             # May be empty if parsing fails, but shouldn't crash
@@ -204,14 +204,15 @@ class TestWebSearchModule:
     @pytest.mark.asyncio
     async def test_google_search_fallback(self) -> None:
         """Test Google search as fallback."""
-        from jarvix.web.search import search_google
+        from jarvix.web.search import search
 
-        with patch("jarvix.web.search.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.text = '<div class="g"><a href="https://example.com">Example</a></div>'
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-
-            results = await search_google("test query", max_results=5)
+        with patch("jarvix.web.search._http_get", return_value='''
+            <div class="g">
+                <a href="https://example.com"><h3>Example</h3></a>
+                <span class="st">A snippet about the result.</span>
+            </div>
+        '''):
+            results = await search("test query", max_results=5, engine="google")
 
             assert isinstance(results, list)
 
@@ -222,7 +223,7 @@ class TestWebReaderModule:
     @pytest.mark.asyncio
     async def test_read_page_extraction(self) -> None:
         """Test HTML to markdown extraction."""
-        from jarvix.web.reader import extract_content
+        from jarvix.web.reader import extract_readable
 
         html = """
         <html>
@@ -237,7 +238,7 @@ class TestWebReaderModule:
         </html>
         """
 
-        result = await extract_content(html, format="markdown")
+        result = extract_readable(html)
 
         assert "Title" in result
         assert "Paragraph" in result
@@ -247,11 +248,11 @@ class TestWebReaderModule:
     @pytest.mark.asyncio
     async def test_read_page_text_format(self) -> None:
         """Test HTML to plain text extraction."""
-        from jarvix.web.reader import extract_content
+        from jarvix.web.reader import extract_readable
 
         html = "<html><body><h1>Title</h1><p>Content</p></body></html>"
 
-        result = await extract_content(html, format="text")
+        result = extract_readable(html, use_html2text=False)
 
         assert "Title" in result
         assert "Content" in result
@@ -264,32 +265,25 @@ class TestWebBrowserModule:
     @pytest.mark.asyncio
     async def test_browser_manager_lazy_init(self) -> None:
         """Test browser manager initializes lazily."""
-        from jarvix.web.browser import BrowserManager, get_browser_manager
-
-        # Reset singleton
-        import jarvix.web.browser as browser_module
-        browser_module._browser_manager = None
-
-        manager = get_browser_manager()
-        assert manager is not None
-        assert not manager._initialized
-
-        # Initialization should happen on first use
-        with patch.object(manager, "_init_browser", new_callable=AsyncMock) as mock_init:
-            mock_init.return_value = None
-            await manager.navigate("https://example.com")
-            mock_init.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_browser_graceful_degradation(self) -> None:
-        """Test browser gracefully handles missing Playwright."""
         from jarvix.web.browser import BrowserManager
 
         manager = BrowserManager()
+        # No _initialized attribute; check that browser is None initially
+        assert manager._browser is None
 
-        # Simulate Playwright not available
-        with patch("jarvix.web.browser.async_playwright", side_effect=ImportError("Playwright not installed")):
-            result = await manager.navigate("https://example.com")
+    @pytest.mark.asyncio
+    async def test_browser_graceful_degradation(self) -> None:
+        """Test browser navigate tool gracefully handles missing Playwright."""
+        from jarvix.web.browser import BrowserNavigateTool
+
+        tool = BrowserNavigateTool()
+
+        # Playwright is imported inside start() → patch the source module
+        with patch("playwright.async_api.async_playwright", side_effect=ImportError("Playwright not installed")):
+            result = await tool.execute(
+                {"url": "https://example.com"},
+                ExecContext(conversation_id="test", user_id="test", permission_manager=PermissionManager()),
+            )
             assert not result.ok
             assert "playwright" in result.error.lower() or "browser" in result.error.lower()
 

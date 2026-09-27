@@ -63,7 +63,7 @@ class MemoryManager:
         Returns:
             The ID of the newly created fact
         """
-        store = await self._get_store()
+        store = await self._get_mem_store()
         return await store.add_fact(fact, source=source, confidence=confidence, tags=tags)
 
     async def retrieve_memory(
@@ -80,7 +80,7 @@ class MemoryManager:
         Returns:
             List of Fact objects
         """
-        store = await self._get_store()
+        store = await self._get_mem_store()
         return await store.get_facts(query, limit)
 
     async def search_memory(
@@ -97,7 +97,7 @@ class MemoryManager:
         Returns:
             List of matching Fact objects ranked by relevance
         """
-        store = await self._get_store()
+        store = await self._get_mem_store()
         return await store.search_facts(query, limit)
 
     async def update_memory(
@@ -114,7 +114,7 @@ class MemoryManager:
         Returns:
             True if the fact was updated, False if not found
         """
-        store = await self._get_store()
+        store = await self._get_mem_store()
         return await store.update_fact(fact_id, **kwargs)
 
     async def forget_memory(self, fact_id: int) -> bool:
@@ -126,7 +126,7 @@ class MemoryManager:
         Returns:
             True if the fact was deleted, False if not found
         """
-        store = await self._get_store()
+        store = await self._get_mem_store()
         return await store.delete_fact(fact_id)
 
     async def list_memories(self, limit: int = 50) -> List[Fact]:
@@ -138,7 +138,7 @@ class MemoryManager:
         Returns:
             List of Fact objects
         """
-        store = await self._get_store()
+        store = await self._get_mem_store()
         return await store.get_facts(None, limit)
 
     async def start_conversation(self, title: Optional[str] = None) -> str:
@@ -150,9 +150,8 @@ class MemoryManager:
         Returns:
             Conversation ID
         """
-        store = await self._get_store()
-        # Get conversation store from the memory store
-        return await store._conversation_store.create_conversation(title) if hasattr(store, '_conversation_store') else ""
+        store = await self._get_conv_store()
+        return await store.create_conversation(title)
 
     async def add_user_message(self, conv_id: str, content: str) -> int:
         """Add a user message to a conversation.
@@ -164,8 +163,8 @@ class MemoryManager:
         Returns:
             Message ID
         """
-        store = await self._get_store()
-        return await store._conversation_store.add_message(conv_id, "user", content) if hasattr(store, '_conversation_store') else 0
+        store = await self._get_conv_store()
+        return await store.add_message(conv_id, "user", content)
 
     async def add_assistant_message(self, conv_id: str, content: str) -> int:
         """Add an assistant message to a conversation.
@@ -177,8 +176,8 @@ class MemoryManager:
         Returns:
             Message ID
         """
-        store = await self._get_store()
-        return await store._conversation_store.add_message(conv_id, "assistant", content) if hasattr(store, '_conversation_store') else 0
+        store = await self._get_conv_store()
+        return await store.add_message(conv_id, "assistant", content)
 
     async def get_conversation_history(self, conv_id: str) -> List[dict]:
         """Get conversation history.
@@ -189,10 +188,8 @@ class MemoryManager:
         Returns:
             List of message dicts
         """
-        store = await self._get_store()
-        if not hasattr(store, '_conversation_store'):
-            return []
-        history = await store._conversation_store.get_history(conv_id)
+        store = await self._get_conv_store()
+        history = await store.get_history(conv_id)
         return [{"role": m.role, "content": m.content} for m in history]
 
     async def recall(self, query: Optional[str] = None, limit: int = 50) -> List[dict]:

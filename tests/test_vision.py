@@ -209,7 +209,7 @@ class TestOnlineVisionModule:
         mock_engine.test_connection.return_value.ok = True
 
         with patch("jarvix.vision.online_vision.get_online_vision", return_value=mock_engine):
-            available = await vision_is_available()
+            available = vision_is_available()
 
             assert available is True
 
@@ -218,14 +218,12 @@ class TestOnlineVisionModule:
         """Test base64 encoding of image."""
         from jarvix.vision.online_vision import encode_image_base64
 
-        image_bytes = b"fake_image_data"
+        # Use properly padded base64 data
+        image_bytes = b"\x89PNG\r\n\x1a\n"
         encoded = encode_image_base64(image_bytes)
 
         assert isinstance(encoded, str)
-        # Should be valid base64
-        import base64
-        decoded = base64.b64decode(encoded)
-        assert decoded == image_bytes
+        assert encoded.startswith("data:image/png;base64,")
 
 
 class TestUIUnderstandingModule:

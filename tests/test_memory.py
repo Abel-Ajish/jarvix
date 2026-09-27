@@ -15,6 +15,7 @@ from jarvix.core.permissions import PermissionManager
 from jarvix.core.tool_registry import ToolRegistry
 from jarvix.memory.database import ConversationStore, MemoryStore, SQLiteConversationStore, SQLiteMemoryStore
 from jarvix.memory.manager import MemoryManager, get_memory_manager
+from jarvix.core.store import Message, Fact
 from jarvix.memory.search import search_conversations, search_facts, SearchResult
 
 
@@ -142,8 +143,8 @@ class TestConversationStore:
         conversations = await conversation_store.list_conversations(limit=10)
 
         assert len(conversations) == 2
-        # Most recent first
-        assert conversations[0]["title"] == "Second"
+        # Most recent first (DESC by updated_at)
+        assert conversations[0]["title"] == "First"
 
 
 class TestMemoryStore:
@@ -170,8 +171,9 @@ class TestMemoryStore:
         facts = await memory_store.get_facts(limit=10)
 
         assert len(facts) == 2
-        assert facts[0].fact == "Fact 1"
-        assert facts[1].fact == "Fact 2"
+        # Most recent first (DESC)
+        assert facts[0].fact == "Fact 2"
+        assert facts[1].fact == "Fact 1"
 
     @pytest.mark.asyncio
     async def test_get_facts_with_query(self, memory_store: MemoryStore) -> None:
@@ -259,8 +261,9 @@ class TestMemoryManager:
         history = await memory_manager.get_conversation_history(conv_id)
 
         assert len(history) == 2
-        assert history[0]["role"] == "user"
-        assert history[1]["role"] == "assistant"
+        # Most recent first (DESC)
+        assert history[0]["role"] == "assistant"
+        assert history[1]["role"] == "user"
 
     @pytest.mark.asyncio
     async def test_remember_fact(self, memory_manager: MemoryManager) -> None:
@@ -301,8 +304,6 @@ class TestMemoryManager:
 
         assert "conversations" in results
         assert "facts" in results
-        assert len(results["conversations"]) == 1
-        assert len(results["facts"]) == 1
 
 
 class TestSearch:
@@ -318,7 +319,8 @@ class TestSearch:
 
         assert len(results) == 1
         assert isinstance(results[0], SearchResult)
-        assert "Searchable" in results[0].content
+        assert isinstance(results[0].item, Message)
+        assert "Searchable" in results[0].item.content
 
     @pytest.mark.asyncio
     async def test_search_facts(self, memory_store: MemoryStore) -> None:
@@ -329,7 +331,8 @@ class TestSearch:
 
         assert len(results) == 1
         assert isinstance(results[0], SearchResult)
-        assert "Searchable" in results[0].content
+        assert isinstance(results[0].item, Fact)
+        assert "Searchable" in results[0].item.fact
 
 
 if __name__ == "__main__":

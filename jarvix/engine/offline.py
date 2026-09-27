@@ -27,6 +27,12 @@ INTENT_PATTERNS: List[Tuple[str, str, List[str]]] = [
     # (tool_name, intent_name, [patterns])
     # Each pattern is a regex with named capture groups for args
 
+    # URL opening (must come before open_application)
+    ("open_url", "OPEN_URL", [
+        r"^(?:open|go to|visit|browse)\s+(?:url\s+)?(?P<url>https?://\S+)$",
+        r"^(?:open|go to|visit|browse)\s+(?P<url>\w+\.\w+(?:/\S*)?)$",
+    ]),
+
     # Windows application control
     ("open_application", "OPEN_APPLICATION", [
         r"^(?:open|launch|start|run)\s+(?P<app_name>.+)$",
@@ -46,7 +52,7 @@ INTENT_PATTERNS: List[Tuple[str, str, List[str]]] = [
 
     # Screenshot
     ("take_screenshot", "TAKE_SCREENSHOT", [
-        r"^(?:take|capture|screenshot|screencap|print screen|prtsc)(?:\s+(?P<area>screen|window|region))?$",
+        r"^(?:take|capture|screenshot|screencap|print screen|prtsc)(?:\s+(?P<area>screen|window|region|screenshot))?$",
     ]),
 
     # File operations
@@ -78,7 +84,7 @@ INTENT_PATTERNS: List[Tuple[str, str, List[str]]] = [
         r"^(?:delete|rmdir|rm)\s+(?:folder|directory|dir)\s+(?P<path>.+)$",
     ]),
     ("search_files", "SEARCH_FILES", [
-        r"^(?:find|search|locate)\s+(?:files?\s+)?(?P<query>.+?)(?:\s+in\s+(?P<path>.+))?$",
+        r"^(?:find|search|locate)\s+files?\s+(?P<query>.+?)(?:\s+in\s+(?P<path>.+))?$",
     ]),
 
     # System info
@@ -103,10 +109,10 @@ INTENT_PATTERNS: List[Tuple[str, str, List[str]]] = [
         r"^(?:set|change)\s+volume\s+(?:to\s+)?(?P<level>\d+)(?:\s*%)?$",
     ]),
     ("increase_volume", "INCREASE_VOLUME", [
-        r"^(?:increase|raise|turn up|volume up)\s+(?:volume|sound)?$",
+        r"^(?:increase|raise|turn up|volume up)(?:\s+(?:volume|sound))?$",
     ]),
     ("decrease_volume", "DECREASE_VOLUME", [
-        r"^(?:decrease|lower|turn down|volume down)\s+(?:volume|sound)?$",
+        r"^(?:decrease|lower|turn down|volume down)(?:\s+(?:volume|sound))?$",
     ]),
     ("mute", "MUTE", [
         r"^(?:mute|silence)\s*(?:volume|sound)?$",
@@ -131,13 +137,13 @@ INTENT_PATTERNS: List[Tuple[str, str, List[str]]] = [
 
     # Time/date
     ("get_time", "GET_TIME", [
-        r"^(?:what time|current time|time)$",
+        r"^(?:what time is it|current time|what\s+time)$",
     ]),
     ("get_date", "GET_DATE", [
-        r"^(?:what date|current date|date|today)$",
+        r"^(?:what date is it|current date|what\s+date|date|today)$",
     ]),
 
-    # URL opening
+    # URL opening (must come before open_application)
     ("open_url", "OPEN_URL", [
         r"^(?:open|go to|visit|browse)\s+(?:url\s+)?(?P<url>https?://\S+)$",
         r"^(?:open|go to|visit|browse)\s+(?P<url>\w+\.\w+(?:/\S*)?)$",
@@ -169,7 +175,7 @@ INTENT_PATTERNS: List[Tuple[str, str, List[str]]] = [
 
     # Memory
     ("memory_search", "MEMORY_SEARCH", [
-        r"^(?:search|find)\s+(?:in\s+)?(?:memory|memories|notes?)\s+(?P<query>.+)$",
+        r"^(?:search|find)\s+(?:in\s+)?(?:memory|memories|notes?)\s+(?:for\s+)?(?P<query>.+)$",
     ]),
     ("memory_save", "MEMORY_SAVE", [
         r"^(?:remember|memorize|save to memory)\s+(?P<fact>.+)$",
