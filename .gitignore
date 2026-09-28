@@ -58,3 +58,9 @@ website_debug.html
 
 # Vercel
 .vercel
+
+# Claude Code / worktrees
+.claude/worktrees/
+
+# OS extras
+desktop.ini
