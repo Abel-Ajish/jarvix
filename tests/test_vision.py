@@ -54,7 +54,7 @@ class TestVisionTools:
         assert schema["type"] == "object"
         assert "monitor" in schema["properties"]
         assert "region" in schema["properties"]
-        assert "format" in schema["properties"]
+        assert "save_path" in schema["properties"]
 
     def test_analyze_screen_tool_schema(self, mock_tool_registry: ToolRegistry) -> None:
         """Test analyze_screen tool schema."""
@@ -77,7 +77,7 @@ class TestVisionTools:
 
         assert schema["type"] == "object"
         assert "description" in schema["properties"]
-        assert "element_type" in schema["properties"]
+        assert "monitor" in schema["properties"]
         assert schema["required"] == ["description"]
 
     @pytest.mark.asyncio
@@ -141,28 +141,26 @@ class TestVisionCaptureModule:
     async def test_capture_screen_bytes(self) -> None:
         """Test capturing screen returns bytes."""
         from jarvix.vision.capture import capture_screen_bytes
+        from jarvix.vision.capture import image_to_bytes
 
-        with patch("jarvix.vision.capture._capture_with_mss") as mock_mss:
-            mock_mss.return_value = b"fake_image_bytes"
+        with patch("jarvix.vision.capture.capture_screen", return_value=MagicMock()) as mock_capture:
+            mock_capture.return_value = MagicMock()
+            with patch("jarvix.vision.capture.image_to_bytes", return_value=b"fake_image_bytes"):
+                result = await capture_screen_bytes(monitor_index=0)
 
-            result = await capture_screen_bytes(monitor=0)
-
-            assert result == b"fake_image_bytes"
-            mock_mss.assert_called_once()
+                assert result == b"fake_image_bytes"
+                mock_capture.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_capture_screen_fallback(self) -> None:
         """Test fallback to PIL when mss fails."""
         from jarvix.vision.capture import capture_screen_bytes
 
-        with patch("jarvix.vision.capture._capture_with_mss", side_effect=Exception("mss failed")):
-            with patch("jarvix.vision.capture._capture_with_pil") as mock_pil:
-                mock_pil.return_value = b"pil_image_bytes"
-
-                result = await capture_screen_bytes(monitor=0)
-
+        with patch("jarvix.vision.capture._capture_screen_sync") as mock_sync:
+            mock_sync.return_value = MagicMock()
+            with patch("jarvix.vision.capture.image_to_bytes", return_value=b"pil_image_bytes"):
+                result = await capture_screen_bytes(monitor_index=0)
                 assert result == b"pil_image_bytes"
-                mock_pil.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_monitors(self) -> None:
@@ -171,11 +169,11 @@ class TestVisionCaptureModule:
 
         with patch("jarvix.vision.capture._get_monitors_mss") as mock_mss:
             mock_mss.return_value = [
-                MonitorInfo(index=0, x=0, y=0, width=1920, height=1080, is_primary=True),
-                MonitorInfo(index=1, x=1920, y=0, width=2560, height=1440, is_primary=False),
+                MonitorInfo(index=0, left=0, top=0, width=1920, height=1080, is_primary=True),
+                MonitorInfo(index=1, left=1920, top=0, width=2560, height=1440, is_primary=False),
             ]
 
-            monitors = await get_monitors()
+            monitors = get_monitors()
 
             assert len(monitors) == 2
             assert monitors[0].is_primary
@@ -190,14 +188,16 @@ class TestOnlineVisionModule:
         """Test vision analysis with mocked AI engine."""
         from jarvix.vision.online_vision import vision_analyze, VisionResult
 
+        mock_result = VisionResult.success("This is a screenshot of a desktop")
         mock_engine = MagicMock()
-        mock_engine.vision = AsyncMock(return_value="This is a screenshot of a desktop")
+        mock_engine.analyze = AsyncMock(return_value=mock_result)
+        mock_engine.is_available.return_value = True
 
         with patch("jarvix.vision.online_vision.get_online_vision", return_value=mock_engine):
             result = await vision_analyze(b"fake_image", "What do you see?")
 
             assert isinstance(result, VisionResult)
-            assert "desktop" in result.description.lower()
+            assert "desktop" in result.text.lower()
 
     @pytest.mark.asyncio
     async def test_vision_is_available(self) -> None:
@@ -205,8 +205,7 @@ class TestOnlineVisionModule:
         from jarvix.vision.online_vision import vision_is_available, OnlineVision
 
         mock_engine = MagicMock()
-        mock_engine.test_connection = AsyncMock()
-        mock_engine.test_connection.return_value.ok = True
+        mock_engine.is_available.return_value = True
 
         with patch("jarvix.vision.online_vision.get_online_vision", return_value=mock_engine):
             available = vision_is_available()
@@ -232,45 +231,49 @@ class TestUIUnderstandingModule:
     @pytest.mark.asyncio
     async def test_detect_ui_elements(self) -> None:
         """Test UI element detection."""
-        from jarvix.vision.ui_understanding import detect_ui_elements, UIAnalysisResult
+        from jarvix.vision.ui_understanding import detect_ui_elements, UIAnalysisResult, UIElementType
+        from jarvix.vision.online_vision import vision_analyze, vision_is_available, VisionResult
 
-        mock_engine = MagicMock()
-        mock_engine.vision = AsyncMock(return_value='{"elements": [{"type": "button", "bbox": [100, 100, 200, 150], "text": "Click me", "confidence": 0.9}]}')
+        mock_vision_result = VisionResult.success('[{"type": "button", "bbox": {"left": 100, "top": 100, "right": 200, "bottom": 150}, "text": "Click me", "confidence": 0.9}]')
 
-        with patch("jarvix.vision.ui_understanding.get_online_vision", return_value=mock_engine):
-            result = await detect_ui_elements(b"fake_image")
+        with patch("jarvix.vision.ui_understanding.vision_is_available", return_value=True):
+            with patch("jarvix.vision.ui_understanding.vision_analyze", new_callable=AsyncMock, return_value=mock_vision_result):
+                result = await detect_ui_elements(b"fake_image")
 
-            assert isinstance(result, UIAnalysisResult)
-            assert len(result.elements) == 1
-            assert result.elements[0].type == "button"
-            assert result.elements[0].text == "Click me"
+                assert isinstance(result, UIAnalysisResult)
+                assert len(result.elements) == 1
+                assert result.elements[0].element_type == UIElementType.BUTTON
+                assert result.elements[0].text == "Click me"
 
     @pytest.mark.asyncio
     async def test_find_ui_element(self) -> None:
         """Test finding specific UI element."""
         from jarvix.vision.ui_understanding import find_ui_element
+        from jarvix.vision.online_vision import vision_analyze, vision_is_available, VisionResult
 
-        mock_engine = MagicMock()
-        mock_engine.vision = AsyncMock(return_value='{"elements": [{"type": "button", "bbox": [100, 100, 200, 150], "text": "Submit", "confidence": 0.95}]}')
+        mock_vision_result = VisionResult.success('{"type": "button", "bbox": {"left": 100, "top": 100, "right": 200, "bottom": 150}, "text": "Submit", "confidence": 0.95, "found": true}')
 
-        with patch("jarvix.vision.ui_understanding.get_online_vision", return_value=mock_engine):
-            element = await find_ui_element(b"fake_image", "submit button")
+        with patch("jarvix.vision.ui_understanding.vision_is_available", return_value=True):
+            with patch("jarvix.vision.ui_understanding.vision_analyze", new_callable=AsyncMock, return_value=mock_vision_result):
+                element = await find_ui_element(b"fake_image", "submit button")
 
-            assert element is not None
-            assert element.text == "Submit"
+                assert element is not None
+                assert element.text == "Submit"
 
     @pytest.mark.asyncio
     async def test_extract_screen_text(self) -> None:
         """Test OCR text extraction."""
         from jarvix.vision.ui_understanding import extract_screen_text
+        from jarvix.vision.online_vision import vision_analyze, vision_is_available, VisionResult
 
-        mock_engine = MagicMock()
-        mock_engine.vision = AsyncMock(return_value="Extracted text from screen: Hello World")
+        mock_vision_result = VisionResult.success('[{"text": "Hello World"}]')
 
-        with patch("jarvix.vision.ui_understanding.get_online_vision", return_value=mock_engine):
-            text = await extract_screen_text(b"fake_image")
+        with patch("jarvix.vision.ui_understanding.vision_is_available", return_value=True):
+            with patch("jarvix.vision.ui_understanding.vision_analyze", new_callable=AsyncMock, return_value=mock_vision_result):
+                text = await extract_screen_text(b"fake_image")
 
-            assert "Hello World" in text
+                assert len(text) == 1
+        assert text[0]["text"] == "Hello World"
 
 
 if __name__ == "__main__":

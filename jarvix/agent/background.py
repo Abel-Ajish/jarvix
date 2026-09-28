@@ -154,12 +154,12 @@ class BackgroundTaskManager:
             try:
                 result = await execute_fn(task, ctx)
                 task.result = result
-                task.status = TaskStatus.COMPLETED if result.ok else TaskStatus.FAILED
+                task.status = TaskStatus.COMPLETED if result.status == TaskStatus.COMPLETED else TaskStatus.FAILED
                 task.completed_at = datetime.now()
 
                 # Publish completion event
                 if self._event_bus:
-                    self._event_bus.publish(TaskCompletedEvent(task_id, result.ok, result))
+                    self._event_bus.publish(TaskCompletedEvent(task_id, result.status == TaskStatus.COMPLETED, result))
 
                 return result
 
