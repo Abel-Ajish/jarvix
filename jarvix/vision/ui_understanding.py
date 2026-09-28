@@ -244,7 +244,7 @@ ELEMENT_FIND_PROMPT = """Find the {element_description} in this screenshot.
 
 Return a single JSON object with:
 - type: element type
-- bounds: {x, y, width, height}
+- bounds: {{x, y, width, height}}
 - text: visible text
 - label: accessible label
 - state: element state

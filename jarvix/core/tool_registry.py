@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, get_type_hints
 from jarvix.core.events import EventBus, ToolExecuted
 from jarvix.core.logger import get_logger
 from jarvix.core.permissions import PermissionLevel, PermissionManager, PermissionDecision
-from jarvix.core.execution import ExecContext, ExecutionCancelled
+from jarvix.core.execution import ExecContext, ExecutionCancelled, NoOpPermissionManager
 
 _LOG = get_logger("jarvix.tool_registry")
 
