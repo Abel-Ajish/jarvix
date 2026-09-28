@@ -1,0 +1,13 @@
+{
+  "name": "jarvix",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Jarvix - AI Desktop Assistant",
+  "scripts": {
+    "dev": "npm --prefix website run dev",
+    "build": "npm --prefix website run build",
+    "start": "npm --prefix website run start"
+  },
+  "devDependencies": {},
+  "dependencies": {}
+}
